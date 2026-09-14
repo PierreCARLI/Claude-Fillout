@@ -1,0 +1,79 @@
+.oa-fillout-router {
+	max-width: 420px;
+	margin: 2rem auto;
+	padding: 2rem;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	font-family: inherit;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.oa-fillout-router form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.oa-fillout-router label {
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+.oa-fillout-router input[type="email"] {
+	padding: 0.65rem 0.75rem;
+	font-size: 1rem;
+	border: 1px solid #ccc;
+	border-radius: 6px;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.oa-fillout-router input[type="email"]:focus {
+	outline: none;
+	border-color: #4a6cf7;
+	box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.15);
+}
+
+.oa-fillout-router button {
+	padding: 0.7rem 1rem;
+	font-size: 1rem;
+	font-weight: 600;
+	background: #4a6cf7;
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+
+.oa-fillout-router button:hover:not(:disabled) {
+	background: #3a5ce0;
+}
+
+.oa-fillout-router button:disabled {
+	background: #a9b8f7;
+	cursor: not-allowed;
+}
+
+.oa-fillout-router .oa-fillout-message {
+	min-height: 1.2em;
+	font-size: 0.9rem;
+	margin: 0;
+}
+
+.oa-fillout-router .oa-fillout-message.is-error {
+	color: #c0392b;
+}
+
+.oa-fillout-router .oa-fillout-message.is-success {
+	color: #1b7d3a;
+}
+
+/* Honeypot : masqué visuellement, mais accessible aux robots qui lisent le DOM */
+.oa-fillout-hp {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
