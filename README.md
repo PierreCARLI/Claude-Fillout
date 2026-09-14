@@ -31,19 +31,20 @@ wordpress-plugin/occitanie-angels-fillout-router/
 
 - Le token Airtable et l'appel à l'API Airtable restent **côté serveur** (endpoint REST WordPress), jamais exposés dans le HTML/JS envoyé au navigateur.
 - Une limite de requêtes par minute/IP et un champ honeypot limitent les abus (scan automatisé d'emails).
+- **Plusieurs configurations** : le plugin n'est pas limité à un seul couple de formulaires. Vous pouvez créer autant de configurations nommées que nécessaire (une par table Airtable / couple de formulaires Fillout), et les utiliser sur des pages différentes.
 
 ## Installation
 
 1. Compressez le dossier `wordpress-plugin/occitanie-angels-fillout-router/` en `.zip`, ou déposez-le via FTP/SFTP OVH dans `wp-content/plugins/`.
 2. Dans l'admin WordPress : **Extensions** → activez **Occitanie Angels - Fillout Router**.
-3. Allez dans **Réglages → Fillout Router**. Les valeurs suivantes sont déjà pré-remplies :
+3. Allez dans **Réglages → Fillout Router**. Une première configuration, nommée `default`, est déjà pré-remplie :
    - Base Airtable : `appQwliKqpfcSOYb0`
    - Table Contacts : `tblmVqV8aXjNauqBl`
    - Champ email : `Email` *(à corriger si le nom exact du champ dans votre table diffère)*
    - Formulaire Création : `https://occitanieangels.fillout.com/t/tajiPdzR5uus`
    - Formulaire Modification : `https://occitanieangels.fillout.com/t/nAxnHFpKNmus`
    - Paramètre d'URL du Record ID : `id`
-4. Renseignez votre **Personal Access Token Airtable** (créé sur [airtable.com/create/tokens](https://airtable.com/create/tokens), scope `data.records:read`, limité à cette base). Deux options :
+4. Renseignez votre **Personal Access Token Airtable** (créé sur [airtable.com/create/tokens](https://airtable.com/create/tokens), scope `data.records:read`, avec accès à **toutes les bases** utilisées par vos configurations — un seul token sert à toutes). Deux options :
    - Le saisir directement dans le champ de réglages (stocké en base WordPress), ou
    - (recommandé, plus sûr) l'ajouter dans `wp-config.php` :
      ```php
@@ -53,11 +54,24 @@ wordpress-plugin/occitanie-angels-fillout-router/
    ```
    [fillout_router]
    ```
+   (équivalent à `[fillout_router config="default"]`)
 6. Publiez cette page, et c'est **son URL** (pas celles de Fillout) que vous partagez sur LinkedIn et le site.
+
+## Ajouter une nouvelle configuration (un autre couple de formulaires)
+
+Dans **Réglages → Fillout Router**, une ligne vierge « Ajouter une nouvelle configuration » se trouve en bas de la liste. Renseignez :
+- un **identifiant (slug)** court, ex. `evenement-2026` (lettres minuscules, chiffres, tirets)
+- le libellé, la base/table/champ email Airtable, et les deux URLs Fillout (+ paramètre du Record ID) propres à cet usage
+
+Enregistrez, puis utilisez cette configuration sur la page de votre choix avec :
+```
+[fillout_router config="evenement-2026"]
+```
+Vous pouvez avoir autant de configurations que nécessaire, actives en même temps sur des pages différentes (ou même plusieurs shortcodes sur une même page). Chaque configuration peut être modifiée ou supprimée indépendamment (case « Supprimer cette configuration »).
 
 ## Vérifier le champ email dans Airtable
 
-Le plugin suppose que le champ s'appelle `Email` dans la table Contacts. Si ce n'est pas le cas, corrigez le nom exact dans **Réglages → Fillout Router → Nom du champ Email**.
+Le plugin suppose que le champ s'appelle `Email`. Si ce n'est pas le cas dans une table donnée, corrigez le nom exact dans la configuration correspondante (**Réglages → Fillout Router → Nom du champ Email**).
 
 ## Test avant mise en ligne
 

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Occitanie Angels - Fillout Router
- * Description: Page d'accueil qui vérifie si l'email du visiteur existe déjà dans Airtable (table Contacts) et le redirige vers le bon formulaire Fillout (Création ou Modification). Utilisation : shortcode [fillout_router].
- * Version: 1.0.0
+ * Description: Page d'accueil qui vérifie si l'email du visiteur existe déjà dans Airtable et le redirige vers le bon formulaire Fillout (Création ou Modification). Supporte plusieurs configurations. Utilisation : shortcode [fillout_router config="nom"].
+ * Version: 2.0.0
  * Author: Occitanie Angels
  * Text Domain: oa-fillout-router
  */
@@ -13,34 +13,54 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'OA_FILLOUT_OPTION_KEY', 'oa_fillout_router_settings' );
 define( 'OA_FILLOUT_REST_NAMESPACE', 'oa-fillout/v1' );
-define( 'OA_FILLOUT_VERSION', '1.0.0' );
+define( 'OA_FILLOUT_VERSION', '2.0.0' );
+define( 'OA_FILLOUT_DEFAULT_CONFIG', 'default' );
 
 /**
- * Valeurs par défaut, pré-remplies avec les informations fournies par l'association.
- * Modifiables ensuite dans Réglages > Fillout Router.
+ * Valeurs par défaut : une configuration "default" pré-remplie avec les
+ * informations fournies par l'association. Tout est modifiable ensuite dans
+ * Réglages > Fillout Router, et d'autres configurations peuvent y être
+ * ajoutées (une par couple de formulaires Fillout / table Airtable).
  */
 function oa_fillout_default_settings() {
 	return array(
-		'airtable_base_id'     => 'appQwliKqpfcSOYb0',
-		'airtable_table_id'    => 'tblmVqV8aXjNauqBl',
-		'airtable_email_field' => 'Email',
-		'airtable_token'       => '', // À renseigner dans les réglages (ou via la constante OA_FILLOUT_AIRTABLE_TOKEN dans wp-config.php).
-		'fillout_create_url'   => 'https://occitanieangels.fillout.com/t/tajiPdzR5uus',
-		'fillout_edit_url'     => 'https://occitanieangels.fillout.com/t/nAxnHFpKNmus',
-		'fillout_edit_param'   => 'id',
-		'rate_limit_per_min'   => 10,
+		'airtable_token'     => '', // À renseigner dans les réglages (ou via la constante OA_FILLOUT_AIRTABLE_TOKEN dans wp-config.php).
+		'rate_limit_per_min' => 10,
+		'configs'            => array(
+			OA_FILLOUT_DEFAULT_CONFIG => array(
+				'label'                => 'Adhésion (Contacts)',
+				'airtable_base_id'     => 'appQwliKqpfcSOYb0',
+				'airtable_table_id'    => 'tblmVqV8aXjNauqBl',
+				'airtable_email_field' => 'Email',
+				'fillout_create_url'   => 'https://occitanieangels.fillout.com/t/tajiPdzR5uus',
+				'fillout_edit_url'     => 'https://occitanieangels.fillout.com/t/nAxnHFpKNmus',
+				'fillout_edit_param'   => 'id',
+			),
+		),
 	);
 }
 
 function oa_fillout_get_settings() {
-	$saved = get_option( OA_FILLOUT_OPTION_KEY, array() );
-	return wp_parse_args( $saved, oa_fillout_default_settings() );
+	$saved    = get_option( OA_FILLOUT_OPTION_KEY, array() );
+	$defaults = oa_fillout_default_settings();
+	$settings = wp_parse_args( $saved, $defaults );
+	if ( empty( $settings['configs'] ) || ! is_array( $settings['configs'] ) ) {
+		$settings['configs'] = $defaults['configs'];
+	}
+	return $settings;
+}
+
+function oa_fillout_get_config( $settings, $slug ) {
+	$slug = sanitize_key( $slug );
+	return isset( $settings['configs'][ $slug ] ) ? $settings['configs'][ $slug ] : null;
 }
 
 /**
  * Le token Airtable : priorité à une constante définie dans wp-config.php
  * (recommandé, car elle n'est pas stockée en base de données), sinon
- * on retombe sur la valeur saisie dans l'écran de réglages.
+ * on retombe sur la valeur saisie dans l'écran de réglages. Un seul token
+ * est utilisé pour toutes les configurations : créez-le avec accès à
+ * toutes les bases Airtable concernées.
  */
 function oa_fillout_get_airtable_token( $settings ) {
 	if ( defined( 'OA_FILLOUT_AIRTABLE_TOKEN' ) && OA_FILLOUT_AIRTABLE_TOKEN ) {
@@ -74,17 +94,39 @@ add_action( 'admin_init', function () {
 } );
 
 function oa_fillout_sanitize_settings( $input ) {
-	$defaults = oa_fillout_default_settings();
-	$out      = array();
+	$out                       = array();
+	$out['airtable_token']     = trim( (string) ( $input['airtable_token'] ?? '' ) );
+	$out['rate_limit_per_min'] = max( 1, (int) ( $input['rate_limit_per_min'] ?? 10 ) );
 
-	$out['airtable_base_id']     = sanitize_text_field( $input['airtable_base_id'] ?? $defaults['airtable_base_id'] );
-	$out['airtable_table_id']    = sanitize_text_field( $input['airtable_table_id'] ?? $defaults['airtable_table_id'] );
-	$out['airtable_email_field'] = sanitize_text_field( $input['airtable_email_field'] ?? $defaults['airtable_email_field'] );
-	$out['airtable_token']       = trim( (string) ( $input['airtable_token'] ?? '' ) );
-	$out['fillout_create_url']   = esc_url_raw( $input['fillout_create_url'] ?? $defaults['fillout_create_url'] );
-	$out['fillout_edit_url']     = esc_url_raw( $input['fillout_edit_url'] ?? $defaults['fillout_edit_url'] );
-	$out['fillout_edit_param']   = sanitize_key( $input['fillout_edit_param'] ?? $defaults['fillout_edit_param'] );
-	$out['rate_limit_per_min']   = max( 1, (int) ( $input['rate_limit_per_min'] ?? $defaults['rate_limit_per_min'] ) );
+	$configs      = array();
+	$config_rows  = isset( $input['configs'] ) && is_array( $input['configs'] ) ? $input['configs'] : array();
+
+	foreach ( $config_rows as $row ) {
+		$slug = isset( $row['slug'] ) ? sanitize_key( $row['slug'] ) : '';
+		if ( empty( $slug ) ) {
+			continue; // Ligne vide (ex. la ligne "nouvelle configuration" non utilisée) : ignorée.
+		}
+		if ( ! empty( $row['delete'] ) ) {
+			continue; // Configuration supprimée par l'utilisateur.
+		}
+
+		$configs[ $slug ] = array(
+			'label'                => sanitize_text_field( $row['label'] ?? $slug ),
+			'airtable_base_id'     => sanitize_text_field( $row['airtable_base_id'] ?? '' ),
+			'airtable_table_id'    => sanitize_text_field( $row['airtable_table_id'] ?? '' ),
+			'airtable_email_field' => sanitize_text_field( $row['airtable_email_field'] ?? 'Email' ),
+			'fillout_create_url'   => esc_url_raw( $row['fillout_create_url'] ?? '' ),
+			'fillout_edit_url'     => esc_url_raw( $row['fillout_edit_url'] ?? '' ),
+			'fillout_edit_param'   => sanitize_key( $row['fillout_edit_param'] ?? 'id' ),
+		);
+	}
+
+	if ( empty( $configs ) ) {
+		$defaults = oa_fillout_default_settings();
+		$configs  = $defaults['configs'];
+	}
+
+	$out['configs'] = $configs;
 
 	return $out;
 }
@@ -93,16 +135,32 @@ function oa_fillout_render_settings_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
-	$s = oa_fillout_get_settings();
-	$token_is_constant = defined( 'OA_FILLOUT_AIRTABLE_TOKEN' ) && OA_FILLOUT_AIRTABLE_TOKEN;
+	$s                  = oa_fillout_get_settings();
+	$token_is_constant  = defined( 'OA_FILLOUT_AIRTABLE_TOKEN' ) && OA_FILLOUT_AIRTABLE_TOKEN;
+	$rows               = $s['configs'];
+	$rows['']           = array( // Ligne vierge en bas de liste pour ajouter une configuration.
+		'label'                => '',
+		'airtable_base_id'     => '',
+		'airtable_table_id'    => '',
+		'airtable_email_field' => 'Email',
+		'fillout_create_url'   => '',
+		'fillout_edit_url'     => '',
+		'fillout_edit_param'   => 'id',
+	);
+	$option_key         = OA_FILLOUT_OPTION_KEY;
+	$row_index          = 0;
 	?>
 	<div class="wrap">
 		<h1>Réglages - Fillout Router</h1>
-		<p>Ces réglages pilotent le shortcode <code>[fillout_router]</code> : la page qui vérifie l'email du
-			visiteur dans Airtable puis le redirige vers le bon formulaire Fillout.</p>
+		<p>Chaque configuration ci-dessous correspond à un couple de formulaires Fillout (Création +
+			Modification) branché sur une table Airtable. Utilisez-la avec
+			<code>[fillout_router config="votre-slug"]</code> (le slug <code>default</code> s'utilise avec
+			simplement <code>[fillout_router]</code>).</p>
 
 		<form method="post" action="options.php">
 			<?php settings_fields( 'oa_fillout_router_group' ); ?>
+
+			<h2>Réglages généraux</h2>
 			<table class="form-table" role="presentation">
 				<tr>
 					<th scope="row"><label for="airtable_token">Personal Access Token Airtable</label></th>
@@ -114,13 +172,15 @@ function oa_fillout_render_settings_page() {
 								préférez le saisir ici.</p>
 						<?php else : ?>
 							<input type="password" id="airtable_token"
-								name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[airtable_token]"
+								name="<?php echo esc_attr( $option_key ); ?>[airtable_token]"
 								value="<?php echo esc_attr( $s['airtable_token'] ); ?>" style="width:400px"
 								autocomplete="off" />
 							<p class="description">
 								Créez un token sur
 								<a href="https://airtable.com/create/tokens" target="_blank" rel="noopener">airtable.com/create/tokens</a>
-								avec le scope <code>data.records:read</code> limité à cette base uniquement.<br>
+								avec le scope <code>data.records:read</code>, en donnant accès à
+								<strong>toutes les bases</strong> utilisées par vos configurations ci-dessous
+								(un seul token sert à toutes les configurations).<br>
 								Pour plus de sécurité, vous pouvez à la place définir dans <code>wp-config.php</code> :<br>
 								<code>define('OA_FILLOUT_AIRTABLE_TOKEN', 'patXXXXXXXX...');</code>
 							</p>
@@ -128,63 +188,103 @@ function oa_fillout_render_settings_page() {
 					</td>
 				</tr>
 				<tr>
-					<th scope="row"><label for="airtable_base_id">Base ID Airtable</label></th>
-					<td><input type="text" id="airtable_base_id"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[airtable_base_id]"
-							value="<?php echo esc_attr( $s['airtable_base_id'] ); ?>" style="width:300px" /></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="airtable_table_id">Table Contacts (ID ou nom)</label></th>
-					<td><input type="text" id="airtable_table_id"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[airtable_table_id]"
-							value="<?php echo esc_attr( $s['airtable_table_id'] ); ?>" style="width:300px" /></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="airtable_email_field">Nom du champ Email dans Airtable</label></th>
-					<td><input type="text" id="airtable_email_field"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[airtable_email_field]"
-							value="<?php echo esc_attr( $s['airtable_email_field'] ); ?>" style="width:300px" /></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="fillout_create_url">URL Fillout - mode Création</label></th>
-					<td><input type="url" id="fillout_create_url"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[fillout_create_url]"
-							value="<?php echo esc_attr( $s['fillout_create_url'] ); ?>" style="width:400px" /></td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="fillout_edit_url">URL Fillout - mode Modification</label></th>
-					<td><input type="url" id="fillout_edit_url"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[fillout_edit_url]"
-							value="<?php echo esc_attr( $s['fillout_edit_url'] ); ?>" style="width:400px" />
-						<p class="description">Sans le paramètre d'ID à la fin, il sera ajouté automatiquement.</p>
-					</td>
-				</tr>
-				<tr>
-					<th scope="row"><label for="fillout_edit_param">Nom du paramètre d'URL pour le Record ID</label></th>
-					<td><input type="text" id="fillout_edit_param"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[fillout_edit_param]"
-							value="<?php echo esc_attr( $s['fillout_edit_param'] ); ?>" style="width:150px" />
-						<p class="description">D'après votre URL Fillout (<code>?id=RECORD_ID()</code>), ce
-							paramètre est <code>id</code>.</p>
-					</td>
-				</tr>
-				<tr>
 					<th scope="row"><label for="rate_limit_per_min">Limite de requêtes / minute / visiteur</label>
 					</th>
 					<td><input type="number" min="1" id="rate_limit_per_min"
-							name="<?php echo esc_attr( OA_FILLOUT_OPTION_KEY ); ?>[rate_limit_per_min]"
+							name="<?php echo esc_attr( $option_key ); ?>[rate_limit_per_min]"
 							value="<?php echo esc_attr( $s['rate_limit_per_min'] ); ?>" style="width:100px" />
 						<p class="description">Protection anti-abus (empêche de scanner en masse les emails
-							existants).</p>
+							existants), tous formulaires confondus.</p>
 					</td>
 				</tr>
 			</table>
+
+			<h2>Configurations (couples de formulaires)</h2>
+			<?php foreach ( $rows as $slug => $cfg ) : $row_index++; $is_new = ( '' === $slug ); ?>
+				<fieldset style="border:1px solid #ccd0d4;padding:1rem 1.5rem;margin-bottom:1.5rem;background:#fff;">
+					<legend style="font-weight:600;padding:0 .5rem;">
+						<?php echo $is_new ? 'Ajouter une nouvelle configuration' : esc_html( $slug ); ?>
+					</legend>
+					<table class="form-table" role="presentation">
+						<tr>
+							<th scope="row">Identifiant (slug)</th>
+							<td>
+								<input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][slug]"
+									value="<?php echo esc_attr( $slug ); ?>" style="width:220px"
+									placeholder="ex: evenement-2026" />
+								<p class="description">Utilisé dans le shortcode : <code>[fillout_router config="<?php echo esc_html( $slug ?: 'votre-slug' ); ?>"]</code>. Lettres minuscules, chiffres, tirets.</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Libellé (repère interne)</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][label]"
+									value="<?php echo esc_attr( $cfg['label'] ); ?>" style="width:300px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">Base ID Airtable</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][airtable_base_id]"
+									value="<?php echo esc_attr( $cfg['airtable_base_id'] ); ?>" style="width:300px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">Table (ID ou nom)</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][airtable_table_id]"
+									value="<?php echo esc_attr( $cfg['airtable_table_id'] ); ?>" style="width:300px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">Nom du champ Email</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][airtable_email_field]"
+									value="<?php echo esc_attr( $cfg['airtable_email_field'] ); ?>" style="width:300px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">URL Fillout - mode Création</th>
+							<td><input type="url"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][fillout_create_url]"
+									value="<?php echo esc_attr( $cfg['fillout_create_url'] ); ?>" style="width:400px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">URL Fillout - mode Modification</th>
+							<td><input type="url"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][fillout_edit_url]"
+									value="<?php echo esc_attr( $cfg['fillout_edit_url'] ); ?>" style="width:400px" />
+								<p class="description">Sans le paramètre d'ID à la fin, il sera ajouté automatiquement.</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Paramètre d'URL pour le Record ID</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][fillout_edit_param]"
+									value="<?php echo esc_attr( $cfg['fillout_edit_param'] ); ?>" style="width:150px" /></td>
+						</tr>
+						<?php if ( ! $is_new ) : ?>
+							<tr>
+								<th scope="row">Supprimer</th>
+								<td>
+									<label>
+										<input type="checkbox"
+											name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][delete]"
+											value="1" />
+										Supprimer cette configuration à l'enregistrement
+									</label>
+								</td>
+							</tr>
+						<?php endif; ?>
+					</table>
+				</fieldset>
+			<?php endforeach; ?>
+
 			<?php submit_button(); ?>
 		</form>
 
 		<h2>Utilisation</h2>
-		<p>Ajoutez le shortcode <code>[fillout_router]</code> sur la page WordPress qui servira de page
-			d'accueil (celle que vous partagerez sur LinkedIn / votre site).</p>
+		<p>Ajoutez le shortcode <code>[fillout_router config="votre-slug"]</code> sur la page WordPress
+			correspondante (le paramètre <code>config</code> peut être omis pour la configuration
+			<code>default</code>). Vous pouvez utiliser plusieurs shortcodes, avec des slugs différents, sur des
+			pages différentes (ou même sur la même page).</p>
 	</div>
 	<?php
 }
@@ -195,7 +295,25 @@ function oa_fillout_render_settings_page() {
 
 add_shortcode( 'fillout_router', 'oa_fillout_render_shortcode' );
 
-function oa_fillout_render_shortcode() {
+function oa_fillout_render_shortcode( $atts ) {
+	static $instance = 0;
+	$instance++;
+
+	$atts = shortcode_atts( array(
+		'config' => OA_FILLOUT_DEFAULT_CONFIG,
+	), $atts, 'fillout_router' );
+
+	$config_slug = sanitize_key( $atts['config'] );
+	$settings    = oa_fillout_get_settings();
+	$config      = oa_fillout_get_config( $settings, $config_slug );
+
+	if ( null === $config ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return '<p><strong>Fillout Router :</strong> la configuration "' . esc_html( $config_slug ) . '" est introuvable. Vérifiez Réglages → Fillout Router.</p>';
+		}
+		return '<p>Ce formulaire n\'est pas disponible pour le moment. Merci de nous contacter.</p>';
+	}
+
 	wp_enqueue_style(
 		'oa-fillout-router',
 		plugins_url( 'assets/router.css', __FILE__ ),
@@ -216,20 +334,22 @@ function oa_fillout_render_shortcode() {
 
 	ob_start();
 	?>
-	<div class="oa-fillout-router" id="oa-fillout-router">
-		<form id="oa-fillout-router-form" novalidate>
-			<label for="oa-fillout-email">Votre adresse email</label>
-			<input type="email" id="oa-fillout-email" name="email" required
-				placeholder="vous@exemple.com" autocomplete="email" />
+	<div class="oa-fillout-router" id="oa-fillout-router-<?php echo (int) $instance; ?>">
+		<form class="oa-fillout-router-form" data-config="<?php echo esc_attr( $config_slug ); ?>" novalidate>
+			<label for="oa-fillout-email-<?php echo (int) $instance; ?>">Votre adresse email</label>
+			<input type="email" id="oa-fillout-email-<?php echo (int) $instance; ?>"
+				class="oa-fillout-email-input" name="email" required placeholder="vous@exemple.com"
+				autocomplete="email" />
 
 			<!-- Champ honeypot anti-bot : doit rester vide, caché visuellement -->
 			<div class="oa-fillout-hp" aria-hidden="true">
-				<label for="oa-fillout-website">Site web</label>
-				<input type="text" id="oa-fillout-website" name="website" tabindex="-1" autocomplete="off" />
+				<label for="oa-fillout-website-<?php echo (int) $instance; ?>">Site web</label>
+				<input type="text" id="oa-fillout-website-<?php echo (int) $instance; ?>"
+					class="oa-fillout-website-input" name="website" tabindex="-1" autocomplete="off" />
 			</div>
 
-			<button type="submit" id="oa-fillout-submit">Continuer</button>
-			<p class="oa-fillout-message" id="oa-fillout-message" role="status"></p>
+			<button type="submit" class="oa-fillout-submit-btn">Continuer</button>
+			<p class="oa-fillout-message" role="status"></p>
 		</form>
 	</div>
 	<?php
@@ -246,9 +366,14 @@ add_action( 'rest_api_init', function () {
 		'callback'            => 'oa_fillout_handle_check_email',
 		'permission_callback' => '__return_true',
 		'args'                => array(
-			'email' => array(
+			'email'  => array(
 				'required' => true,
 				'type'     => 'string',
+			),
+			'config' => array(
+				'required' => false,
+				'type'     => 'string',
+				'default'  => OA_FILLOUT_DEFAULT_CONFIG,
 			),
 		),
 	) );
@@ -263,7 +388,7 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
 		return new WP_Error( 'oa_fillout_bot', 'Requête invalide.', array( 'status' => 400 ) );
 	}
 
-	// Rate limiting simple par IP.
+	// Rate limiting simple par IP (tous formulaires confondus).
 	$ip           = oa_fillout_get_client_ip();
 	$rl_key       = 'oa_fillout_rl_' . md5( $ip );
 	$current_hits = (int) get_transient( $rl_key );
@@ -271,6 +396,12 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
 		return new WP_Error( 'oa_fillout_rate_limited', 'Trop de tentatives, réessayez dans une minute.', array( 'status' => 429 ) );
 	}
 	set_transient( $rl_key, $current_hits + 1, MINUTE_IN_SECONDS );
+
+	$config_slug = (string) $request->get_param( 'config' );
+	$config      = oa_fillout_get_config( $settings, $config_slug ?: OA_FILLOUT_DEFAULT_CONFIG );
+	if ( null === $config ) {
+		return new WP_Error( 'oa_fillout_unknown_config', 'Configuration inconnue.', array( 'status' => 404 ) );
+	}
 
 	$email = sanitize_email( (string) $request->get_param( 'email' ) );
 	if ( empty( $email ) || ! is_email( $email ) ) {
@@ -282,18 +413,18 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
 		return new WP_Error( 'oa_fillout_not_configured', 'Le plugin n\'est pas encore configuré (token Airtable manquant).', array( 'status' => 500 ) );
 	}
 
-	$record = oa_fillout_lookup_airtable_record_by_email( $email, $settings, $token );
+	$record = oa_fillout_lookup_airtable_record_by_email( $email, $config, $token );
 	if ( is_wp_error( $record ) ) {
 		return $record;
 	}
 
 	if ( $record ) {
 		$redirect_url = add_query_arg(
-			array( $settings['fillout_edit_param'] => $record['id'] ),
-			$settings['fillout_edit_url']
+			array( $config['fillout_edit_param'] => $record['id'] ),
+			$config['fillout_edit_url']
 		);
 	} else {
-		$redirect_url = $settings['fillout_create_url'];
+		$redirect_url = $config['fillout_create_url'];
 	}
 
 	return array(
@@ -306,8 +437,8 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
  * Interroge Airtable pour trouver un enregistrement dont le champ email
  * correspond (comparaison insensible à la casse), et renvoie son record ID.
  */
-function oa_fillout_lookup_airtable_record_by_email( $email, $settings, $token ) {
-	$field_name = $settings['airtable_email_field'];
+function oa_fillout_lookup_airtable_record_by_email( $email, $config, $token ) {
+	$field_name = $config['airtable_email_field'];
 
 	// Échappement de l'email pour l'insérer sans risque dans la formule Airtable.
 	$escaped_email = str_replace( array( '\\', '"' ), array( '\\\\', '\\"' ), $email );
@@ -319,8 +450,8 @@ function oa_fillout_lookup_airtable_record_by_email( $email, $settings, $token )
 
 	$endpoint = sprintf(
 		'https://api.airtable.com/v0/%s/%s',
-		rawurlencode( $settings['airtable_base_id'] ),
-		rawurlencode( $settings['airtable_table_id'] )
+		rawurlencode( $config['airtable_base_id'] ),
+		rawurlencode( $config['airtable_table_id'] )
 	);
 	$endpoint = add_query_arg( array(
 		'filterByFormula' => $formula,
