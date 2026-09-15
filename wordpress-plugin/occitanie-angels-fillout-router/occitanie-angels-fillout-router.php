@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Occitanie Angels - Fillout Router
  * Description: Page d'accueil qui vérifie si l'email du visiteur existe déjà dans Airtable et le redirige vers le bon formulaire Fillout (Création ou Modification). Supporte plusieurs configurations. Utilisation : shortcode [fillout_router config="nom"].
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: Occitanie Angels
  * Text Domain: oa-fillout-router
  */
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'OA_FILLOUT_OPTION_KEY', 'oa_fillout_router_settings' );
 define( 'OA_FILLOUT_REST_NAMESPACE', 'oa-fillout/v1' );
-define( 'OA_FILLOUT_VERSION', '2.0.0' );
+define( 'OA_FILLOUT_VERSION', '2.1.0' );
 define( 'OA_FILLOUT_DEFAULT_CONFIG', 'default' );
 
 /**
