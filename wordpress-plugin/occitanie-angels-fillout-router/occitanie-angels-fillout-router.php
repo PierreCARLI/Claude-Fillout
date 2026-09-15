@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Occitanie Angels - Fillout Router
  * Description: Page d'accueil qui vérifie si l'email du visiteur existe déjà dans Airtable et le redirige vers le bon formulaire Fillout (Création ou Modification). Supporte plusieurs configurations. Utilisation : shortcode [fillout_router config="nom"].
- * Version: 2.2.0
+ * Version: 2.3.0
  * Author: Occitanie Angels
  * Text Domain: oa-fillout-router
  */
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'OA_FILLOUT_OPTION_KEY', 'oa_fillout_router_settings' );
 define( 'OA_FILLOUT_REST_NAMESPACE', 'oa-fillout/v1' );
-define( 'OA_FILLOUT_VERSION', '2.2.0' );
+define( 'OA_FILLOUT_VERSION', '2.3.0' );
 define( 'OA_FILLOUT_DEFAULT_CONFIG', 'default' );
 
 /**
@@ -73,6 +73,24 @@ function oa_fillout_is_allowed_fillout_url( $url ) {
 	}
 	$host = strtolower( $parts['host'] );
 	return ( 'fillout.com' === $host || 1 === preg_match( '/\.fillout\.com$/', $host ) );
+}
+
+/**
+ * Le "retour" après le formulaire de création de contact ne doit pointer
+ * que vers une page de ce site — sinon quelqu'un pourrait forger une
+ * requête vers notre endpoint pour faire rediriger le formulaire de
+ * contact Fillout vers un site tiers via le paramètre de retour.
+ */
+function oa_fillout_is_allowed_return_url( $url ) {
+	if ( empty( $url ) ) {
+		return false;
+	}
+	$parts = wp_parse_url( $url );
+	$home  = wp_parse_url( home_url() );
+	if ( empty( $parts['host'] ) || empty( $home['host'] ) ) {
+		return false;
+	}
+	return strtolower( $parts['host'] ) === strtolower( $home['host'] );
 }
 
 /**
@@ -137,11 +155,13 @@ function oa_fillout_sanitize_settings( $input ) {
 			'airtable_base_id'     => sanitize_text_field( $row['airtable_base_id'] ?? '' ),
 			'airtable_table_id'    => sanitize_text_field( $row['airtable_table_id'] ?? '' ),
 			'airtable_email_field' => sanitize_text_field( $row['airtable_email_field'] ?? 'Email' ),
-			'dynamic_form'         => ! empty( $row['dynamic_form'] ),
-			'fillout_create_url'   => esc_url_raw( $row['fillout_create_url'] ?? '' ),
-			'fillout_edit_url'     => esc_url_raw( $row['fillout_edit_url'] ?? '' ),
-			'fillout_edit_param'   => sanitize_key( $row['fillout_edit_param'] ?? 'id' ),
-			'landing_page_url'     => esc_url_raw( $row['landing_page_url'] ?? '' ),
+			'dynamic_form'              => ! empty( $row['dynamic_form'] ),
+			'fillout_create_url'        => esc_url_raw( $row['fillout_create_url'] ?? '' ),
+			'fillout_edit_url'          => esc_url_raw( $row['fillout_edit_url'] ?? '' ),
+			'fillout_edit_param'        => sanitize_key( $row['fillout_edit_param'] ?? 'id' ),
+			'landing_page_url'          => esc_url_raw( $row['landing_page_url'] ?? '' ),
+			'contact_form_url'          => esc_url_raw( $row['contact_form_url'] ?? '' ),
+			'contact_form_return_param' => sanitize_key( $row['contact_form_return_param'] ?? 'next' ),
 		);
 	}
 
@@ -169,11 +189,13 @@ function oa_fillout_render_settings_page() {
 		'airtable_base_id'     => '',
 		'airtable_table_id'    => '',
 		'airtable_email_field' => 'Email',
-		'dynamic_form'         => false,
-		'fillout_create_url'   => '',
-		'fillout_edit_url'     => '',
-		'fillout_edit_param'   => 'id',
-		'landing_page_url'     => '',
+		'dynamic_form'              => false,
+		'fillout_create_url'        => '',
+		'fillout_edit_url'          => '',
+		'fillout_edit_param'        => 'id',
+		'landing_page_url'          => '',
+		'contact_form_url'          => '',
+		'contact_form_return_param' => 'next',
 	);
 	$option_key         = OA_FILLOUT_OPTION_KEY;
 	$row_index          = 0;
@@ -319,6 +341,33 @@ function oa_fillout_render_settings_page() {
 								<p class="description">En mode dynamique, utilisez le même nom de paramètre dans
 									chaque formulaire Fillout (préremplissage par URL du champ de sélection du
 									contact).</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Formulaire de création de contact (optionnel)</th>
+							<td><input type="url"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][contact_form_url]"
+									value="<?php echo esc_attr( $cfg['contact_form_url'] ?? '' ); ?>" style="width:400px"
+									placeholder="https://occitanieangels.fillout.com/t/tajiPdzR5uus" />
+								<p class="description">Si renseigné : quand l'email n'est pas trouvé, la personne
+									est d'abord envoyée vers <strong>ce</strong> formulaire pour créer sa fiche
+									Contact, puis renvoyée automatiquement vers cette page d'accueil (qui la
+									redirigera alors normalement, contact trouvé). Utile pour un formulaire
+									événement où la création de contact doit rester interdite (champ Record
+									Picker sans "Can create new records"). Laissez vide pour revenir au
+									comportement standard (redirection directe vers le formulaire de Création).</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Paramètre de retour</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][contact_form_return_param]"
+									value="<?php echo esc_attr( $cfg['contact_form_return_param'] ?? 'next' ); ?>" style="width:150px" />
+								<p class="description">Nom du paramètre d'URL utilisé pour dire au formulaire de
+									création de contact où revenir. Dans les réglages "Après soumission" /
+									"Confirmation" de ce formulaire Fillout, configurez une redirection vers
+									l'URL reçue dans ce paramètre (balise de fusion référençant le paramètre
+									d'URL entrant — à vérifier dans l'éditeur Fillout).</p>
 							</td>
 						</tr>
 						<tr class="oa-fillout-dynamic-only">
@@ -582,6 +631,11 @@ add_action( 'rest_api_init', function () {
 				'type'     => 'string',
 				'default'  => '',
 			),
+			'page_url' => array(
+				'required' => false,
+				'type'     => 'string',
+				'default'  => '',
+			),
 		),
 	) );
 } );
@@ -641,6 +695,18 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
 		$redirect_url = add_query_arg(
 			array( $config['fillout_edit_param'] => $record['id'] ),
 			$edit_url
+		);
+	} elseif ( ! empty( $config['contact_form_url'] ) ) {
+		// Pas de contact existant : on passe d'abord par le formulaire de création de contact,
+		// qui renverra la personne sur cette page (voir "Paramètre de retour"), où elle sera
+		// re-vérifiée et trouvée cette fois.
+		$page_url = esc_url_raw( (string) $request->get_param( 'page_url' ) );
+		if ( ! oa_fillout_is_allowed_return_url( $page_url ) ) {
+			return new WP_Error( 'oa_fillout_invalid_page_url', 'URL de retour invalide.', array( 'status' => 400 ) );
+		}
+		$redirect_url = add_query_arg(
+			array( $config['contact_form_return_param'] => $page_url ),
+			$config['contact_form_url']
 		);
 	} else {
 		$redirect_url = $create_url;

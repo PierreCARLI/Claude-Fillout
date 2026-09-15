@@ -45,6 +45,7 @@
 					email: email,
 					config: configSlug,
 					form_url: dynamicFormUrl,
+					page_url: window.location.href,
 					website: honeypotEl ? honeypotEl.value : ''
 				} )
 			} )

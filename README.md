@@ -88,7 +88,20 @@ La solution reprend le même principe de vérification d'email, mais avec **une 
 
 Aucune page ni configuration supplémentaire à créer dans WordPress, quel que soit le nombre d'événements. Par sécurité, le plugin n'accepte que des URLs `fillout.com` dans le lien partagé — toute autre valeur est rejetée, pour empêcher un détournement du domaine du site vers un site tiers.
 
-**Limite à connaître :** le préremplissage réduit fortement le risque de doublon (le champ arrive déjà rempli avec le bon contact), mais n'empêche pas techniquement quelqu'un de cliquer "Create new" quand même. Pour une garantie totale, il faudrait deux formulaires Fillout par événement (un avec "Can create new records" désactivé pour les contacts reconnus, un avec activé pour les nouveaux) — plus de travail par événement, à envisager seulement si les doublons restent un problème après le préremplissage.
+**Limite à connaître :** le préremplissage réduit fortement le risque de doublon (le champ arrive déjà rempli avec le bon contact), mais n'empêche pas techniquement quelqu'un de cliquer "Create new" quand même. Pour une garantie totale, voir la section suivante.
+
+## Élimination totale des doublons : passer par le formulaire de contact avant l'événement
+
+Plutôt que de compter sur le préremplissage (qui réduit le risque sans l'éliminer), vous pouvez configurer le plugin pour qu'un email non trouvé soit **d'abord** envoyé vers votre formulaire de création de contact (ex. votre formulaire d'adhésion en mode Création), puis renvoyé automatiquement vers la page d'accueil une fois le contact créé — qui le retrouvera cette fois et le redirigera normalement vers le formulaire événement. Résultat : **tout le monde arrive au formulaire événement avec une fiche Contact déjà existante**, donc vous pouvez désactiver définitivement "Can create new records" sur son champ Record Picker, dans tous vos formulaires événements, sans exception à gérer.
+
+**Mise en place (une fois) :**
+1. Sur la configuration `evenement`, renseignez **Formulaire de création de contact** avec l'URL de votre formulaire d'adhésion (mode Création).
+2. Laissez **Paramètre de retour** à sa valeur par défaut (`next`), ou choisissez-en une autre.
+3. ⚠️ Dans Fillout, sur ce formulaire de création de contact, réglages "Après soumission" / "Confirmation" : configurez une redirection vers l'URL reçue dans le paramètre `next` de l'URL d'arrivée (généralement via une balise de fusion référençant les paramètres d'URL entrants — le nom exact de cette fonctionnalité est à vérifier dans votre éditeur Fillout, elle n'a pas pu être confirmée depuis cet environnement).
+
+Une fois ces trois étapes faites, tous vos formulaires événements peuvent avoir "Can create new records" désactivé sur le champ Record Picker — plus aucun doublon possible par ce biais, quel que soit le nombre d'événements, sans configuration Fillout supplémentaire par événement.
+
+**Sécurité :** le paramètre de retour n'est accepté que s'il pointe vers une page de votre propre site (le plugin vérifie le nom de domaine), pour empêcher qu'il serve à détourner votre formulaire de contact vers un site tiers.
 
 ## Vérifier le champ email dans Airtable
 
