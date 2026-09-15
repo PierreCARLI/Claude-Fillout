@@ -29,6 +29,8 @@ function oa_fillout_default_settings() {
 		'configs'            => array(
 			OA_FILLOUT_DEFAULT_CONFIG => array(
 				'label'                => 'Adhésion (Contacts)',
+				'heading'              => 'Bienvenue !',
+				'subheading'           => 'Renseignez votre adresse email pour accéder au formulaire adapté à votre situation.',
 				'airtable_base_id'     => 'appQwliKqpfcSOYb0',
 				'airtable_table_id'    => 'tblmVqV8aXjNauqBl',
 				'airtable_email_field' => 'Email',
@@ -112,6 +114,8 @@ function oa_fillout_sanitize_settings( $input ) {
 
 		$configs[ $slug ] = array(
 			'label'                => sanitize_text_field( $row['label'] ?? $slug ),
+			'heading'              => sanitize_text_field( $row['heading'] ?? 'Bienvenue !' ),
+			'subheading'           => sanitize_textarea_field( $row['subheading'] ?? '' ),
 			'airtable_base_id'     => sanitize_text_field( $row['airtable_base_id'] ?? '' ),
 			'airtable_table_id'    => sanitize_text_field( $row['airtable_table_id'] ?? '' ),
 			'airtable_email_field' => sanitize_text_field( $row['airtable_email_field'] ?? 'Email' ),
@@ -140,6 +144,8 @@ function oa_fillout_render_settings_page() {
 	$rows               = $s['configs'];
 	$rows['']           = array( // Ligne vierge en bas de liste pour ajouter une configuration.
 		'label'                => '',
+		'heading'              => 'Bienvenue !',
+		'subheading'           => 'Renseignez votre adresse email pour accéder au formulaire adapté à votre situation.',
 		'airtable_base_id'     => '',
 		'airtable_table_id'    => '',
 		'airtable_email_field' => 'Email',
@@ -221,6 +227,18 @@ function oa_fillout_render_settings_page() {
 							<td><input type="text"
 									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][label]"
 									value="<?php echo esc_attr( $cfg['label'] ); ?>" style="width:300px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">Titre affiché</th>
+							<td><input type="text"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][heading]"
+									value="<?php echo esc_attr( $cfg['heading'] ?? 'Bienvenue !' ); ?>" style="width:300px" /></td>
+						</tr>
+						<tr>
+							<th scope="row">Sous-texte affiché</th>
+							<td><textarea
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][subheading]"
+									rows="2" style="width:400px"><?php echo esc_textarea( $cfg['subheading'] ?? '' ); ?></textarea></td>
 						</tr>
 						<tr>
 							<th scope="row">Base ID Airtable</th>
@@ -338,13 +356,27 @@ function oa_fillout_render_shortcode( $atts ) {
 		'nonce'   => wp_create_nonce( 'wp_rest' ),
 	) );
 
+	$heading    = ! empty( $config['heading'] ) ? $config['heading'] : 'Bienvenue !';
+	$subheading = ! empty( $config['subheading'] )
+		? $config['subheading']
+		: 'Renseignez votre adresse email pour accéder au formulaire adapté à votre situation.';
+
 	ob_start();
 	?>
 	<div class="oa-fillout-router" id="oa-fillout-router-<?php echo (int) $instance; ?>">
+		<div class="oa-fillout-icon" aria-hidden="true">
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+				<polyline points="22,6 12,13 2,6"></polyline>
+			</svg>
+		</div>
+		<h2 class="oa-fillout-heading"><?php echo esc_html( $heading ); ?></h2>
+		<p class="oa-fillout-subheading"><?php echo esc_html( $subheading ); ?></p>
+
 		<form class="oa-fillout-router-form" data-config="<?php echo esc_attr( $config_slug ); ?>" novalidate>
-			<label for="oa-fillout-email-<?php echo (int) $instance; ?>">Votre adresse email</label>
+			<label class="oa-fillout-sr-only" for="oa-fillout-email-<?php echo (int) $instance; ?>">Votre adresse email</label>
 			<input type="email" id="oa-fillout-email-<?php echo (int) $instance; ?>"
-				class="oa-fillout-email-input" name="email" required placeholder="vous@exemple.com"
+				class="oa-fillout-email-input" name="email" required placeholder="votre@email.com"
 				autocomplete="email" />
 
 			<!-- Champ honeypot anti-bot : doit rester vide, caché visuellement -->
@@ -354,7 +386,13 @@ function oa_fillout_render_shortcode( $atts ) {
 					class="oa-fillout-website-input" name="website" tabindex="-1" autocomplete="off" />
 			</div>
 
-			<button type="submit" class="oa-fillout-submit-btn">Continuer</button>
+			<button type="submit" class="oa-fillout-submit-btn">
+				<span class="oa-fillout-submit-label">Continuer</span>
+				<svg class="oa-fillout-arrow" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<line x1="5" y1="12" x2="19" y2="12"></line>
+					<polyline points="12 5 19 12 12 19"></polyline>
+				</svg>
+			</button>
 			<p class="oa-fillout-message" role="status"></p>
 		</form>
 	</div>

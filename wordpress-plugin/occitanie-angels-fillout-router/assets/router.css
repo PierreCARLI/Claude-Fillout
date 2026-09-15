@@ -1,76 +1,133 @@
 .oa-fillout-router {
 	max-width: 420px;
 	margin: 2rem auto;
-	padding: 2rem;
-	border: 1px solid #e0e0e0;
-	border-radius: 8px;
+	padding: 2.5rem 2rem;
+	background: #131722;
+	border: 1px solid #262b3a;
+	border-radius: 20px;
 	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+	text-align: center;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .oa-fillout-router * {
 	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.oa-fillout-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	margin: 0 auto 1.25rem;
+	border-radius: 50%;
+	background: rgba(131, 83, 252, 0.15);
+	color: #8353fc;
+}
+
+.oa-fillout-icon svg {
+	width: 26px;
+	height: 26px;
+}
+
+.oa-fillout-heading {
+	margin: 0 0 0.5rem;
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.oa-fillout-subheading {
+	margin: 0 0 1.75rem;
+	font-size: 0.95rem;
+	line-height: 1.5;
+	color: #9296a8;
 }
 
 .oa-fillout-router form {
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 0.9rem;
+	text-align: left;
 }
 
-.oa-fillout-router label {
-	font-weight: 600;
-	font-size: 0.95rem;
+.oa-fillout-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 
 .oa-fillout-router input[type="email"] {
-	padding: 0.65rem 0.75rem;
-	font-size: 1rem;
-	border: 1px solid #ccc;
-	border-radius: 6px;
+	padding: 0.85rem 1rem;
+	font-size: 0.95rem;
+	background: #0d1017;
+	border: 1px solid #262b3a;
+	border-radius: 14px;
+	color: #e6e8ee;
 	width: 100%;
-	box-sizing: border-box;
+}
+
+.oa-fillout-router input[type="email"]::placeholder {
+	color: #6b7086;
 }
 
 .oa-fillout-router input[type="email"]:focus {
 	outline: none;
 	border-color: #8353fc;
-	box-shadow: 0 0 0 2px rgba(131, 83, 252, 0.15);
+	box-shadow: 0 0 0 2px rgba(131, 83, 252, 0.25);
 }
 
-.oa-fillout-router button {
-	padding: 0.7rem 1rem;
+.oa-fillout-submit-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.9rem 1.5rem;
 	font-size: 1rem;
 	font-weight: 600;
 	background: #8353fc;
 	color: #fff;
 	border: none;
-	border-radius: 6px;
+	border-radius: 999px;
 	cursor: pointer;
 	transition: background 0.15s ease;
 }
 
-.oa-fillout-router button:hover:not(:disabled) {
+.oa-fillout-submit-btn:hover:not(:disabled) {
 	background: #6f3ff0;
 }
 
-.oa-fillout-router button:disabled {
-	background: #c8b3fd;
+.oa-fillout-submit-btn:disabled {
+	background: #4a3d80;
+	color: #b9aee8;
 	cursor: not-allowed;
+}
+
+.oa-fillout-arrow {
+	flex: none;
 }
 
 .oa-fillout-router .oa-fillout-message {
 	min-height: 1.2em;
-	font-size: 0.9rem;
+	font-size: 0.85rem;
 	margin: 0;
+	text-align: center;
 }
 
 .oa-fillout-router .oa-fillout-message.is-error {
-	color: #c0392b;
+	color: #ff6b6b;
 }
 
 .oa-fillout-router .oa-fillout-message.is-success {
-	color: #1b7d3a;
+	color: #4ade80;
 }
 
 /* Honeypot : masqué visuellement, mais accessible aux robots qui lisent le DOM */

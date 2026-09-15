@@ -4,11 +4,12 @@
 	var forms = document.querySelectorAll( '.oa-fillout-router-form' );
 
 	forms.forEach( function ( form ) {
-		var emailInput = form.querySelector( '.oa-fillout-email-input' );
-		var submitBtn  = form.querySelector( '.oa-fillout-submit-btn' );
-		var messageEl  = form.querySelector( '.oa-fillout-message' );
-		var honeypotEl = form.querySelector( '.oa-fillout-website-input' );
-		var configSlug = form.dataset.config || 'default';
+		var emailInput  = form.querySelector( '.oa-fillout-email-input' );
+		var submitBtn   = form.querySelector( '.oa-fillout-submit-btn' );
+		var submitLabel = form.querySelector( '.oa-fillout-submit-label' );
+		var messageEl   = form.querySelector( '.oa-fillout-message' );
+		var honeypotEl  = form.querySelector( '.oa-fillout-website-input' );
+		var configSlug  = form.dataset.config || 'default';
 
 		function setMessage( text, type ) {
 			messageEl.textContent = text || '';
@@ -17,7 +18,7 @@
 
 		function setLoading( isLoading ) {
 			submitBtn.disabled = isLoading;
-			submitBtn.textContent = isLoading ? 'Vérification…' : 'Continuer';
+			submitLabel.textContent = isLoading ? 'Vérification…' : 'Continuer';
 		}
 
 		form.addEventListener( 'submit', function ( event ) {
