@@ -315,9 +315,15 @@ function oa_fillout_render_shortcode( $atts ) {
 	}
 
 	wp_enqueue_style(
+		'oa-fillout-router-font-inter',
+		'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+		array(),
+		null
+	);
+	wp_enqueue_style(
 		'oa-fillout-router',
 		plugins_url( 'assets/router.css', __FILE__ ),
-		array(),
+		array( 'oa-fillout-router-font-inter' ),
 		OA_FILLOUT_VERSION
 	);
 	wp_enqueue_script(
