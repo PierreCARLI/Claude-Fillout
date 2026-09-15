@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Occitanie Angels - Fillout Router
  * Description: Page d'accueil qui vérifie si l'email du visiteur existe déjà dans Airtable et le redirige vers le bon formulaire Fillout (Création ou Modification). Supporte plusieurs configurations. Utilisation : shortcode [fillout_router config="nom"].
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author: Occitanie Angels
  * Text Domain: oa-fillout-router
  */
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'OA_FILLOUT_OPTION_KEY', 'oa_fillout_router_settings' );
 define( 'OA_FILLOUT_REST_NAMESPACE', 'oa-fillout/v1' );
-define( 'OA_FILLOUT_VERSION', '2.1.0' );
+define( 'OA_FILLOUT_VERSION', '2.1.1' );
 define( 'OA_FILLOUT_DEFAULT_CONFIG', 'default' );
 
 /**
@@ -403,6 +403,30 @@ function oa_fillout_render_shortcode( $atts ) {
 /* -------------------------------------------------------------------------
  * REST API : vérification de l'email dans Airtable
  * ---------------------------------------------------------------------- */
+
+/**
+ * Certains sites verrouillent entièrement l'API REST pour les visiteurs non
+ * connectés (plugin de sécurité, extrait de code, hébergeur) via le filtre
+ * 'rest_authentication_errors'. Notre endpoint doit rester accessible à
+ * tout visiteur anonyme : on intercepte ce filtre en dernière priorité pour
+ * laisser explicitement passer notre propre route, quoi que décident les
+ * autres filtres enregistrés avant nous. La route reste protégée par son
+ * honeypot et sa limite de requêtes/minute (voir oa_fillout_handle_check_email).
+ */
+add_filter( 'rest_authentication_errors', function ( $result ) {
+	if ( is_wp_error( $result ) ) {
+		$route = '';
+		if ( isset( $GLOBALS['wp']->query_vars['rest_route'] ) ) {
+			$route = $GLOBALS['wp']->query_vars['rest_route'];
+		} elseif ( isset( $_SERVER['REQUEST_URI'] ) ) {
+			$route = wp_unslash( $_SERVER['REQUEST_URI'] );
+		}
+		if ( false !== strpos( $route, OA_FILLOUT_REST_NAMESPACE ) ) {
+			return null;
+		}
+	}
+	return $result;
+}, PHP_INT_MAX );
 
 add_action( 'rest_api_init', function () {
 	register_rest_route( OA_FILLOUT_REST_NAMESPACE, '/check-email', array(
