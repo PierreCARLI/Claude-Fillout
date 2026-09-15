@@ -69,6 +69,27 @@ Enregistrez, puis utilisez cette configuration sur la page de votre choix avec :
 ```
 Vous pouvez avoir autant de configurations que nécessaire, actives en même temps sur des pages différentes (ou même plusieurs shortcodes sur une même page). Chaque configuration peut être modifiée ou supprimée indépendamment (case « Supprimer cette configuration »).
 
+## Mode dynamique (un formulaire Fillout par événement, sans multiplier les pages WordPress)
+
+Cas d'usage : un formulaire d'inscription différent par événement, qui crée des enregistrements dans une table "Fiche de présence" liée à Contacts via un champ de sélection (Record Picker). Le risque : les visiteurs cliquent "Create new" sur ce champ alors que leur fiche Contact existe déjà, créant des doublons.
+
+La solution reprend le même principe de vérification d'email, mais avec **une seule configuration et une seule page WordPress qui servent à tous les événements** — l'URL du formulaire Fillout de l'événement est fournie dans le lien partagé, pas dans les réglages.
+
+**Mise en place (une fois) :**
+1. Dans **Réglages → Fillout Router**, créez une configuration (ex. slug `evenement`), avec la base/table/champ email de **Contacts** (c'est toujours Contacts qu'on interroge pour détecter les doublons).
+2. Cochez **Formulaire dynamique**.
+3. Renseignez le **Paramètre d'URL pour le Record ID** : utilisez toujours le même nom (ex. `contact_id`) dans tous vos formulaires Fillout d'événements.
+4. Créez une page WordPress (ex. `/inscription-evenement/`) avec `[fillout_router config="evenement"]`, et renseignez son URL dans le champ **URL de la page WordPress** de la configuration (sert au générateur de lien).
+
+**Pour chaque nouvel événement :**
+1. Créez votre formulaire Fillout comme d'habitude. Sur le champ Record Picker ("NOM Prénom" ou équivalent), configurez le préremplissage par URL avec le paramètre choisi ci-dessus (ex. `contact_id`) — ⚠️ à localiser dans les réglages du champ ou du formulaire Fillout, sa valeur attendue est le Record ID Airtable (`recXXXXXXXXXXXXXX`).
+2. Dans **Réglages → Fillout Router**, sur la configuration `evenement`, utilisez le **Générateur de lien** : collez l'URL de ce nouveau formulaire Fillout, cliquez sur "Générer le lien", copiez le résultat.
+3. Partagez ce lien (pas l'URL Fillout brute) sur LinkedIn / votre site.
+
+Aucune page ni configuration supplémentaire à créer dans WordPress, quel que soit le nombre d'événements. Par sécurité, le plugin n'accepte que des URLs `fillout.com` dans le lien partagé — toute autre valeur est rejetée, pour empêcher un détournement du domaine du site vers un site tiers.
+
+**Limite à connaître :** le préremplissage réduit fortement le risque de doublon (le champ arrive déjà rempli avec le bon contact), mais n'empêche pas techniquement quelqu'un de cliquer "Create new" quand même. Pour une garantie totale, il faudrait deux formulaires Fillout par événement (un avec "Can create new records" désactivé pour les contacts reconnus, un avec activé pour les nouveaux) — plus de travail par événement, à envisager seulement si les doublons restent un problème après le préremplissage.
+
 ## Vérifier le champ email dans Airtable
 
 Le plugin suppose que le champ s'appelle `Email`. Si ce n'est pas le cas dans une table donnée, corrigez le nom exact dans la configuration correspondante (**Réglages → Fillout Router → Nom du champ Email**).

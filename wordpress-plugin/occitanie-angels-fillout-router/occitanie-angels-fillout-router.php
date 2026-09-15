@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Occitanie Angels - Fillout Router
  * Description: Page d'accueil qui vérifie si l'email du visiteur existe déjà dans Airtable et le redirige vers le bon formulaire Fillout (Création ou Modification). Supporte plusieurs configurations. Utilisation : shortcode [fillout_router config="nom"].
- * Version: 2.1.1
+ * Version: 2.2.0
  * Author: Occitanie Angels
  * Text Domain: oa-fillout-router
  */
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'OA_FILLOUT_OPTION_KEY', 'oa_fillout_router_settings' );
 define( 'OA_FILLOUT_REST_NAMESPACE', 'oa-fillout/v1' );
-define( 'OA_FILLOUT_VERSION', '2.1.1' );
+define( 'OA_FILLOUT_VERSION', '2.2.0' );
 define( 'OA_FILLOUT_DEFAULT_CONFIG', 'default' );
 
 /**
@@ -55,6 +55,24 @@ function oa_fillout_get_settings() {
 function oa_fillout_get_config( $settings, $slug ) {
 	$slug = sanitize_key( $slug );
 	return isset( $settings['configs'][ $slug ] ) ? $settings['configs'][ $slug ] : null;
+}
+
+/**
+ * En mode "formulaire dynamique", l'URL Fillout n'est pas stockée dans les
+ * réglages mais fournie dans le lien partagé (paramètre ?form=). On
+ * n'autorise que des URLs Fillout, pour empêcher que ce mécanisme serve à
+ * rediriger les visiteurs vers un site tiers via notre domaine de confiance.
+ */
+function oa_fillout_is_allowed_fillout_url( $url ) {
+	if ( empty( $url ) ) {
+		return false;
+	}
+	$parts = wp_parse_url( $url );
+	if ( empty( $parts['host'] ) || empty( $parts['scheme'] ) || 'https' !== strtolower( $parts['scheme'] ) ) {
+		return false;
+	}
+	$host = strtolower( $parts['host'] );
+	return ( 'fillout.com' === $host || 1 === preg_match( '/\.fillout\.com$/', $host ) );
 }
 
 /**
@@ -119,9 +137,11 @@ function oa_fillout_sanitize_settings( $input ) {
 			'airtable_base_id'     => sanitize_text_field( $row['airtable_base_id'] ?? '' ),
 			'airtable_table_id'    => sanitize_text_field( $row['airtable_table_id'] ?? '' ),
 			'airtable_email_field' => sanitize_text_field( $row['airtable_email_field'] ?? 'Email' ),
+			'dynamic_form'         => ! empty( $row['dynamic_form'] ),
 			'fillout_create_url'   => esc_url_raw( $row['fillout_create_url'] ?? '' ),
 			'fillout_edit_url'     => esc_url_raw( $row['fillout_edit_url'] ?? '' ),
 			'fillout_edit_param'   => sanitize_key( $row['fillout_edit_param'] ?? 'id' ),
+			'landing_page_url'     => esc_url_raw( $row['landing_page_url'] ?? '' ),
 		);
 	}
 
@@ -149,9 +169,11 @@ function oa_fillout_render_settings_page() {
 		'airtable_base_id'     => '',
 		'airtable_table_id'    => '',
 		'airtable_email_field' => 'Email',
+		'dynamic_form'         => false,
 		'fillout_create_url'   => '',
 		'fillout_edit_url'     => '',
 		'fillout_edit_param'   => 'id',
+		'landing_page_url'     => '',
 	);
 	$option_key         = OA_FILLOUT_OPTION_KEY;
 	$row_index          = 0;
@@ -259,26 +281,69 @@ function oa_fillout_render_settings_page() {
 									value="<?php echo esc_attr( $cfg['airtable_email_field'] ); ?>" style="width:300px" /></td>
 						</tr>
 						<tr>
+							<th scope="row">Formulaire dynamique</th>
+							<td>
+								<label>
+									<input type="checkbox" class="oa-fillout-dynamic-toggle"
+										name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][dynamic_form]"
+										value="1" <?php checked( ! empty( $cfg['dynamic_form'] ) ); ?> />
+									L'URL du formulaire Fillout est fournie dans le lien partagé (paramètre
+									<code>?form=</code>), pas ci-dessous. Pratique quand vous créez un nouveau
+									formulaire Fillout par événement : une seule configuration et une seule page
+									WordPress servent pour tous les événements.
+								</label>
+							</td>
+						</tr>
+						<tr class="oa-fillout-static-only">
 							<th scope="row">URL Fillout - mode Création</th>
 							<td><input type="url"
 									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][fillout_create_url]"
-									value="<?php echo esc_attr( $cfg['fillout_create_url'] ); ?>" style="width:400px" /></td>
+									value="<?php echo esc_attr( $cfg['fillout_create_url'] ); ?>" style="width:400px" />
+								<p class="description">Ignoré si "Formulaire dynamique" est coché.</p>
+							</td>
 						</tr>
-						<tr>
+						<tr class="oa-fillout-static-only">
 							<th scope="row">URL Fillout - mode Modification</th>
 							<td><input type="url"
 									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][fillout_edit_url]"
 									value="<?php echo esc_attr( $cfg['fillout_edit_url'] ); ?>" style="width:400px" />
-								<p class="description">Sans le paramètre d'ID à la fin, il sera ajouté automatiquement.</p>
+								<p class="description">Sans le paramètre d'ID à la fin, il sera ajouté
+									automatiquement. Ignoré si "Formulaire dynamique" est coché.</p>
 							</td>
 						</tr>
 						<tr>
 							<th scope="row">Paramètre d'URL pour le Record ID</th>
 							<td><input type="text"
 									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][fillout_edit_param]"
-									value="<?php echo esc_attr( $cfg['fillout_edit_param'] ); ?>" style="width:150px" /></td>
+									value="<?php echo esc_attr( $cfg['fillout_edit_param'] ); ?>" style="width:150px" />
+								<p class="description">En mode dynamique, utilisez le même nom de paramètre dans
+									chaque formulaire Fillout (préremplissage par URL du champ de sélection du
+									contact).</p>
+							</td>
+						</tr>
+						<tr class="oa-fillout-dynamic-only">
+							<th scope="row">URL de la page WordPress</th>
+							<td><input type="url" class="oa-fillout-landing-url"
+									name="<?php echo esc_attr( $option_key ); ?>[configs][<?php echo $row_index; ?>][landing_page_url]"
+									value="<?php echo esc_attr( $cfg['landing_page_url'] ?? '' ); ?>" style="width:400px"
+									placeholder="https://occitanie-angels.fr/inscription-evenement/" />
+								<p class="description">La page où vous avez mis <code>[fillout_router config="<?php echo esc_html( $slug ?: 'votre-slug' ); ?>"]</code>. Sert uniquement au générateur de lien ci-dessous.</p>
+							</td>
 						</tr>
 						<?php if ( ! $is_new ) : ?>
+							<tr class="oa-fillout-dynamic-only">
+								<th scope="row">Générateur de lien</th>
+								<td>
+									<input type="url" class="oa-fillout-gen-form-url" style="width:400px"
+										placeholder="URL de votre formulaire Fillout pour cet événement" />
+									<button type="button" class="button oa-fillout-gen-btn">Générer le lien</button>
+									<p>
+										<input type="text" class="oa-fillout-gen-output" style="width:400px" readonly
+											placeholder="Le lien à partager apparaîtra ici" />
+										<button type="button" class="button oa-fillout-gen-copy">Copier</button>
+									</p>
+								</td>
+							</tr>
 							<tr>
 								<th scope="row">Supprimer</th>
 								<td>
@@ -295,6 +360,56 @@ function oa_fillout_render_settings_page() {
 				</fieldset>
 			<?php endforeach; ?>
 
+			<script>
+			( function () {
+				document.querySelectorAll( '.oa-fillout-dynamic-toggle' ).forEach( function ( toggle ) {
+					var fieldset = toggle.closest( 'fieldset' );
+					function sync() {
+						fieldset.querySelectorAll( '.oa-fillout-static-only' ).forEach( function ( row ) {
+							row.style.display = toggle.checked ? 'none' : '';
+						} );
+						fieldset.querySelectorAll( '.oa-fillout-dynamic-only' ).forEach( function ( row ) {
+							row.style.display = toggle.checked ? '' : 'none';
+						} );
+					}
+					toggle.addEventListener( 'change', sync );
+					sync();
+				} );
+
+				document.querySelectorAll( '.oa-fillout-gen-btn' ).forEach( function ( btn ) {
+					btn.addEventListener( 'click', function () {
+						var fieldset  = btn.closest( 'fieldset' );
+						var landing   = fieldset.querySelector( '.oa-fillout-landing-url' ).value.trim();
+						var formUrl   = fieldset.querySelector( '.oa-fillout-gen-form-url' ).value.trim();
+						var output    = fieldset.querySelector( '.oa-fillout-gen-output' );
+						if ( ! landing || ! formUrl ) {
+							output.value = '';
+							alert( 'Renseignez l\'URL de la page WordPress et l\'URL du formulaire Fillout.' );
+							return;
+						}
+						var sep = landing.indexOf( '?' ) === -1 ? '?' : '&';
+						output.value = landing + sep + 'form=' + encodeURIComponent( formUrl );
+						output.select();
+					} );
+				} );
+
+				document.querySelectorAll( '.oa-fillout-gen-copy' ).forEach( function ( btn ) {
+					btn.addEventListener( 'click', function () {
+						var output = btn.closest( 'fieldset' ).querySelector( '.oa-fillout-gen-output' );
+						if ( ! output.value ) {
+							return;
+						}
+						output.select();
+						if ( navigator.clipboard ) {
+							navigator.clipboard.writeText( output.value );
+						} else {
+							document.execCommand( 'copy' );
+						}
+					} );
+				} );
+			} )();
+			</script>
+
 			<?php submit_button(); ?>
 		</form>
 
@@ -303,6 +418,11 @@ function oa_fillout_render_settings_page() {
 			correspondante (le paramètre <code>config</code> peut être omis pour la configuration
 			<code>default</code>). Vous pouvez utiliser plusieurs shortcodes, avec des slugs différents, sur des
 			pages différentes (ou même sur la même page).</p>
+		<p><strong>Mode dynamique</strong> (une configuration réutilisable pour de nombreux formulaires, ex.
+			un formulaire Fillout par événement) : cochez "Formulaire dynamique" sur la configuration, créez
+			une seule page WordPress avec son shortcode, puis pour chaque nouveau formulaire Fillout, utilisez le
+			générateur de lien de cette configuration pour obtenir le lien à partager — aucune autre
+			manipulation WordPress n'est nécessaire.</p>
 	</div>
 	<?php
 }
@@ -330,6 +450,18 @@ function oa_fillout_render_shortcode( $atts ) {
 			return '<p><strong>Fillout Router :</strong> la configuration "' . esc_html( $config_slug ) . '" est introuvable. Vérifiez Réglages → Fillout Router.</p>';
 		}
 		return '<p>Ce formulaire n\'est pas disponible pour le moment. Merci de nous contacter.</p>';
+	}
+
+	$dynamic_form_url = '';
+	if ( ! empty( $config['dynamic_form'] ) ) {
+		$requested_url = isset( $_GET['form'] ) ? esc_url_raw( wp_unslash( $_GET['form'] ) ) : '';
+		if ( ! oa_fillout_is_allowed_fillout_url( $requested_url ) ) {
+			if ( current_user_can( 'manage_options' ) ) {
+				return '<p><strong>Fillout Router :</strong> lien invalide ou incomplet — il manque (ou il est incorrect) le paramètre <code>?form=</code> pointant vers une URL fillout.com. Utilisez le générateur de lien dans Réglages → Fillout Router.</p>';
+			}
+			return '<p>Ce lien d\'inscription est invalide ou incomplet. Merci d\'utiliser le lien qui vous a été communiqué pour cet événement, ou de nous contacter.</p>';
+		}
+		$dynamic_form_url = $requested_url;
 	}
 
 	wp_enqueue_style(
@@ -373,7 +505,9 @@ function oa_fillout_render_shortcode( $atts ) {
 		<h2 class="oa-fillout-heading"><?php echo esc_html( $heading ); ?></h2>
 		<p class="oa-fillout-subheading"><?php echo esc_html( $subheading ); ?></p>
 
-		<form class="oa-fillout-router-form" data-config="<?php echo esc_attr( $config_slug ); ?>" novalidate>
+		<form class="oa-fillout-router-form" data-config="<?php echo esc_attr( $config_slug ); ?>"
+			<?php if ( $dynamic_form_url ) : ?>data-dynamic-form-url="<?php echo esc_attr( $dynamic_form_url ); ?>"<?php endif; ?>
+			novalidate>
 			<label class="oa-fillout-sr-only" for="oa-fillout-email-<?php echo (int) $instance; ?>">Votre adresse email</label>
 			<input type="email" id="oa-fillout-email-<?php echo (int) $instance; ?>"
 				class="oa-fillout-email-input" name="email" required placeholder="votre@email.com"
@@ -443,6 +577,11 @@ add_action( 'rest_api_init', function () {
 				'type'     => 'string',
 				'default'  => OA_FILLOUT_DEFAULT_CONFIG,
 			),
+			'form_url' => array(
+				'required' => false,
+				'type'     => 'string',
+				'default'  => '',
+			),
 		),
 	) );
 } );
@@ -481,6 +620,18 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
 		return new WP_Error( 'oa_fillout_not_configured', 'Le plugin n\'est pas encore configuré (token Airtable manquant).', array( 'status' => 500 ) );
 	}
 
+	if ( ! empty( $config['dynamic_form'] ) ) {
+		$form_url = esc_url_raw( (string) $request->get_param( 'form_url' ) );
+		if ( ! oa_fillout_is_allowed_fillout_url( $form_url ) ) {
+			return new WP_Error( 'oa_fillout_invalid_form_url', 'Lien de formulaire invalide.', array( 'status' => 400 ) );
+		}
+		$create_url = $form_url;
+		$edit_url   = $form_url;
+	} else {
+		$create_url = $config['fillout_create_url'];
+		$edit_url   = $config['fillout_edit_url'];
+	}
+
 	$record = oa_fillout_lookup_airtable_record_by_email( $email, $config, $token );
 	if ( is_wp_error( $record ) ) {
 		return $record;
@@ -489,10 +640,10 @@ function oa_fillout_handle_check_email( WP_REST_Request $request ) {
 	if ( $record ) {
 		$redirect_url = add_query_arg(
 			array( $config['fillout_edit_param'] => $record['id'] ),
-			$config['fillout_edit_url']
+			$edit_url
 		);
 	} else {
-		$redirect_url = $config['fillout_create_url'];
+		$redirect_url = $create_url;
 	}
 
 	return array(

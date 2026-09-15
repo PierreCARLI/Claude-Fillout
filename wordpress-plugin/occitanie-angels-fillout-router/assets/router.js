@@ -10,6 +10,7 @@
 		var messageEl   = form.querySelector( '.oa-fillout-message' );
 		var honeypotEl  = form.querySelector( '.oa-fillout-website-input' );
 		var configSlug  = form.dataset.config || 'default';
+		var dynamicFormUrl = form.dataset.dynamicFormUrl || '';
 
 		function setMessage( text, type ) {
 			messageEl.textContent = text || '';
@@ -43,6 +44,7 @@
 				body: JSON.stringify( {
 					email: email,
 					config: configSlug,
+					form_url: dynamicFormUrl,
 					website: honeypotEl ? honeypotEl.value : ''
 				} )
 			} )
